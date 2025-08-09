@@ -1,0 +1,542 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Catégorie & Lettre — v25_fix5</title>
+<style>
+  :root{ --bg:#0f1226; --card:#161a36; --text:#f4f7ff; --muted:#aab2d5; --ok:#31d0aa; --bad:#ff6b6b; --accent:#7b86ff; }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Inter,Arial,sans-serif;
+        background:radial-gradient(1200px 600px at 70% -10%, #1c2050 0%, #0f1226 60%), var(--bg);
+        color:var(--text); display:flex; min-height:100vh; align-items:center; justify-content:center; padding:12px; }
+  .card{ width:min(980px,100%); background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+         border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:14px 14px 124px; position:relative; }
+  .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .left{display:flex;gap:16px;align-items:center}
+  .cat-wrap{display:flex;flex-direction:column;gap:4px}
+  .cat-label{font-size:13px;color:var(--muted);letter-spacing:.3px}
+  .cat-name{font-size:28px;font-weight:900;letter-spacing:.4px;text-transform:capitalize;
+            background:linear-gradient(90deg,#e2e6ff,#fff);-webkit-background-clip:text;background-clip:text;color:transparent;
+            text-shadow:0 6px 22px rgba(123,134,255,.35) }
+  .letter{font-size:60px;font-weight:900;line-height:1;background:linear-gradient(90deg,#c9d0ff,#fff);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 6px 22px rgba(123,134,255,.35)}
+  .score{font-weight:800} .top-actions{display:flex;gap:8px;align-items:center}
+  .start-btn{background:var(--ok);color:#07121a;border:none;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer}
+  .timer-wrap{height:10px;background:rgba(255,255,255,0.08);border-radius:999px;overflow:hidden;margin:10px 0}
+  .timer-bar{height:100%;width:100%;background:linear-gradient(90deg,#31d0aa,#7b86ff);transition:width .1s linear}
+  .prompt{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  input[type=text]{flex:1 1 200px; min-width:0; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14);
+    color:var(--text); height:32px; padding:2px 6px; border-radius:6px; outline:none; font-size:14px; line-height:1.2; }
+  input::placeholder{color:#9aa3d3} button{background:var(--accent);color:#fff;border:none;padding:10px 12px;border-radius:10px;font-weight:700;cursor:pointer}
+  button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.25);color:#d6dbff} button[disabled]{opacity:.5;cursor:not-allowed}
+  .feedback{min-height:22px;margin-top:8px;font-weight:700} .ok{color:var(--ok)} .bad{color:#ff6b6b} .info{color:var(--muted)}
+  .source-chip{font-size:11px;border:1px dashed rgba(255,255,255,.25);padding:2px 6px;border-radius:999px;margin-left:6px;color:#cdd3ff}
+  .actions-bar{ position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex; gap:8px; justify-content:space-between; align-items:center;
+    background:rgba(22,26,54,.96); padding:8px 12px calc(8px + env(safe-area-inset-bottom)); border-top:1px solid rgba(255,255,255,0.08); }
+  .actions-bar .right{display:flex;gap:8px;flex-wrap:nowrap} .passes{font-size:12px;color:var(--muted)}
+  @media (max-width: 560px){ .letter{font-size:44px} .cat-name{font-size:24px} .prompt{flex-direction:column;align-items:stretch} .card{padding-bottom:150px} .actions-bar{gap:10px} .actions-bar .right{width:100%} .actions-bar button{width:100%} }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="row">
+      <div class="left">
+        <div class="cat-wrap">
+          <div class="cat-label">Catégorie</div>
+          <div class="cat-name" id="category">—</div>
+        </div>
+        <div class="letter" id="letter">—</div>
+      </div>
+      <div class="top-actions">
+        <div class="score">Score : <span id="score">0</span></div>
+        <button id="startBtn" class="start-btn" type="button">▶️ Démarrer / Rejouer</button>
+      </div>
+    </div>
+    <div class="timer-wrap"><div class="timer-bar" id="timerBar"></div></div>
+    <div class="prompt">
+      <input id="answer" type="text" autocomplete="off" inputmode="text" enterkeyhint="done" placeholder="Ta réponse…" />
+    </div>
+    <div class="feedback info" id="feedback">
+      Clique sur « Démarrer » pour jouer. 12 secondes par tour.
+      <span id="srcChip" class="source-chip" style="display:none;"></span>
+    </div>
+  </div>
+  <div class="actions-bar" id="actionBar">
+    <div class="passes" id="passesInfo">Passes restantes : 3</div>
+    <div class="right">
+      <button id="validateBtn" title="Valider" type="button">Valider</button>
+      <button id="skipBtn" class="secondary" title="Passer (restant: 3)" type="button">Passer (3)</button>
+    </div>
+  </div>
+
+<script>
+// ===== Constantes & helpers =====
+const CATEGORIES = [
+  "animal","pays","ville","capitale","monument","objet","fruit","couleur","prénom","sport","métier","véhicule",
+  "instrument de musique","marque","plante","nourriture","langue","rivière","montagne","film","boisson",
+  "acteur","chanteur","application mobile","jeu vidéo","personnage fictif","dessert","outil","fleur"
+];
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const ROUND_MS = 12000;
+const MAX_PASSES = 3;
+
+function stripDiacritics(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+function firstLetter(s){
+  return stripDiacritics(s)
+    .replace(/^[\s'\"«»()\-\.,]+/, "")
+    .replace(/^l'|^le |^la |^les |^des |^de |^du |^d'|^the /,"")[0]||"";
+}
+function uniq(arr){const seen=new Set(); const out=[]; for(const x of arr){const k=stripDiacritics(x); if(!seen.has(k)){ seen.add(k); out.push(x);} } return out;}
+function ensureQuota(map){ for(const L of LETTERS){ map[L]=uniq(map[L]||[]); } return map; }
+
+// ===== Dictionnaires locaux (minimaux; online-first) =====
+const LOCAL_DICT = {};
+LOCAL_DICT["nourriture"] = ensureQuota({ "M":[ "melon","macaron","maïs","miel","miso","moutarde" ], "J":["jambon"] });
+LOCAL_DICT["fruit"]      = ensureQuota({ "M":[ "mangue","melon","mirabelle","mandarine","myrtille" ] });
+LOCAL_DICT["pays"] = ensureQuota({
+  "A":["Angleterre"], "E":["Écosse","Ecosse"], "P":["Pays de Galles"], "I":["Irlande du Nord"],
+  "H":["Hongrie"], "S":["Suède","Suisse"], "Q":["Qatar"], "K":["Koweït"], "J":["Japon","Jordanie","Jamaïque"]
+});
+LOCAL_DICT["métier"] = ensureQuota({ "R":["radiologue"], "U":["urologue"], "N":["neurologue"] });
+LOCAL_DICT["sport"]  = ensureQuota({ "A":["athlétisme"], "T":["tennis"], "N":["natation"] });
+LOCAL_DICT["animal"] = ensureQuota({ "H":["héron"], "C":["chat","chien"], "L":["lion"], "T":["taupe"] });
+LOCAL_DICT["ville"]  = ensureQuota({ "N":["New York","Nice"] });
+LOCAL_DICT["fleur"]  = ensureQuota({ "P":["pétunia","pavot","pivoine"], "J":["jonquille"] });
+
+// ===== Ajouts marques véhicules & boissons (local) =====
+LOCAL_DICT["véhicule"] = ensureQuota(Object.assign({}, LOCAL_DICT["véhicule"]||{}, {
+  "A": (LOCAL_DICT["véhicule"]?.["A"]||[]).concat(["Audi","Alfa Romeo","Aston Martin"]),
+  "B": (LOCAL_DICT["véhicule"]?.["B"]||[]).concat(["BMW","Bentley","Bugatti"]),
+  "C": (LOCAL_DICT["véhicule"]?.["C"]||[]).concat(["Citroën","Chevrolet","Chrysler"]),
+  "D": (LOCAL_DICT["véhicule"]?.["D"]||[]).concat(["Dacia","Dodge","Daihatsu"]),
+  "F": (LOCAL_DICT["véhicule"]?.["F"]||[]).concat(["Ford","Fiat","Ferrari"]),
+  "H": (LOCAL_DICT["véhicule"]?.["H"]||[]).concat(["Honda","Hyundai"]),
+  "J": (LOCAL_DICT["véhicule"]?.["J"]||[]).concat(["Jaguar","Jeep"]),
+  "K": (LOCAL_DICT["véhicule"]?.["K"]||[]).concat(["Kia","Koenigsegg"]),
+  "L": (LOCAL_DICT["véhicule"]?.["L"]||[]).concat(["Lamborghini","Lexus","Land Rover"]),
+  "M": (LOCAL_DICT["véhicule"]?.["M"]||[]).concat(["Mercedes-Benz","Maserati","Mazda","McLaren","Mini"]),
+  "N": (LOCAL_DICT["véhicule"]?.["N"]||[]).concat(["Nissan"]),
+  "O": (LOCAL_DICT["véhicule"]?.["O"]||[]).concat(["Opel"]),
+  "P": (LOCAL_DICT["véhicule"]?.["P"]||[]).concat(["Peugeot","Porsche","Pontiac"]),
+  "R": (LOCAL_DICT["véhicule"]?.["R"]||[]).concat(["Renault","Rolls-Royce","Rivian"]),
+  "S": (LOCAL_DICT["véhicule"]?.["S"]||[]).concat(["Subaru","Suzuki","Seat","Skoda"]),
+  "T": (LOCAL_DICT["véhicule"]?.["T"]||[]).concat(["Toyota","Tesla","Triumph"]),
+  "V": (LOCAL_DICT["véhicule"]?.["V"]||[]).concat(["Volkswagen","Volvo"]),
+  "Y": (LOCAL_DICT["véhicule"]?.["Y"]||[]).concat(["Yamaha"])
+}));
+
+LOCAL_DICT["boisson"] = ensureQuota(Object.assign({}, LOCAL_DICT["boisson"]||{}, {
+  "C": (LOCAL_DICT["boisson"]?.["C"]||[]).concat(["Coca-Cola","Capri-Sun","Canada Dry"]),
+  "E": (LOCAL_DICT["boisson"]?.["E"]||[]).concat(["Evian","Energy drink"]),
+  "F": (LOCAL_DICT["boisson"]?.["F"]||[]).concat(["Fanta","Fuze Tea"]),
+  "L": (LOCAL_DICT["boisson"]?.["L"]||[]).concat(["Lipton Ice Tea"]),
+  "N": (LOCAL_DICT["boisson"]?.["N"]||[]).concat(["Nestea"]),
+  "O": (LOCAL_DICT["boisson"]?.["O"]||[]).concat(["Orangina"]),
+  "P": (LOCAL_DICT["boisson"]?.["P"]||[]).concat(["Pepsi","Perrier"]),
+  "R": (LOCAL_DICT["boisson"]?.["R"]||[]).concat(["Red Bull","Ricard"]),
+  "S": (LOCAL_DICT["boisson"]?.["S"]||[]).concat(["Sprite","Schweppes"]),
+  "V": (LOCAL_DICT["boisson"]?.["V"]||[]).concat(["Volvic","Vittel"])
+}));
+LOCAL_DICT["acteur"] = ensureQuota({
+  "O": ["Omar Sy"], "D": ["Dany Boon"], "J": ["Jean Dujardin"], "M": ["Marion Cotillard"],
+  "L": ["Louis de Funès"], "V": ["Vincent Cassel"], "I": ["Isabelle Huppert"]
+});
+
+// ===== Exceptions & blocages =====
+
+const EXCEPTIONS = {
+  "outil": {"lime": true, "truelle": true},
+  "nourriture": {"melon": true, "jambon": true},
+  "fruit": {"mangue": true},
+  "métier": {"radiologue": true,"urologue": true,"neurologue": true},
+  "sport": {"athlétisme": true, "natation": true},
+  "ville": {"new york": true},
+  "boisson": {"eau": true, "fanta": true},
+  "langue": {"roumain": true},
+  "fleur": {"pétunia": true,"pavot": true,"pivoine": true,"jonquille": true},
+  "pays": {"angleterre": true, "écosse": true, "ecosse": true, "pays de galles": true, "irlande du nord": true, "japon": true},
+  "animal": {"taupe": true},
+  "véhicule": {"ford": true}
+};
+
+const EXCEPTIONS_BLOCK = { "pays": {"québec": true} };
+
+// ===== Validation en ligne (ONLINE-FIRST) =====
+const WD_ACCEPT = {
+  "animal": ["Q729","Q16521"],
+  "pays": ["Q6256","Q3624078","Q1763527","Q3336843","Q46395","Q82794"],
+  "ville": ["Q515","Q486972","Q7930989","Q1549591"],
+  "capitale": ["Q5119","Q1549591"],
+  "monument": ["Q4989906","Q839954"],
+  "objet": ["Q488383","Q8205328","Q39546"],
+  "fruit": ["Q3314483","Q16521"],
+  "couleur": ["Q1075"],
+  "prénom": ["Q202444"],
+  "sport": ["Q349","Q31629","Q217613","Q31920","Q542"],
+  "métier": ["Q28640","Q12737077","Q500808","Q930752","Q39631","Q901","Q901711"],
+  "véhicule": ["Q42889","Q215380","Q1047129"],
+  "instrument de musique":["Q34379"],
+  "marque": ["Q431289","Q167270","Q161338","Q4830453"],
+  "plante": ["Q756","Q16521"],
+  "nourriture": ["Q2095","Q174259","Q10990","Q10978","Q11399"],
+  "langue": ["Q34770"],
+  "rivière": ["Q4022","Q355304"],
+  "montagne": ["Q8502","Q46831"],
+  "film": ["Q11424"],
+  "boisson": ["Q40050","Q154"],
+  "application mobile": ["Q166142","Q7397"],
+  "jeu vidéo": ["Q7889","Q7058673","Q1571241"],
+  "personnage fictif": ["Q95074"],
+  "acteur": ["Q33999"],
+  "chanteur": ["Q177220"],
+  "outil": ["Q39546","Q51834033","Q623109"],
+  "fleur": ["Q506","Q43445","Q756","Q16521"]
+};
+const OCCUPATION_Q = { "acteur": "Q33999", "chanteur": "Q177220" };
+
+const CAT_HINTS = {
+  "pays": ["pays","country","état souverain","sovereign state","nation"],
+  "outil": ["outil","outil manuel","outil de menuiserie","outil de bricolage","outil de maçonnerie","maçonnerie","bricklaying","masonry","tool","hand tool","woodworking tool","trowel"],
+  "boisson": ["boisson","drink","beverage","soda","soft drink","marque de boisson","brand"],
+  "nourriture": ["aliment","food","viande","charcuterie","meat","pork","cold cut","deli meat"],
+  "instrument de musique": ["instrument de musique","instrument","musical instrument"],
+  "véhicule": ["véhicule","voiture","marque automobile","constructeur auto","automobile","brand"] ,
+  "jeu vidéo": ["jeu vidéo","video game"],
+  "fleur": ["fleur","flower","plante à fleurs","angiosperme","angiosperm"],
+  "fruit": ["fruit","drupe","baie","berry","stone fruit","tropical fruit"],
+  "sport": ["sport","discipline","natation","swimming","water sport"],
+  "acteur": ["acteur","comédien","actor","cinéma","film"],
+  "chanteur": ["chanteur","chanteuse","singer","musique","chant"],
+  "animal": ["animal","mammifère","mammal","oiseau","bird","reptile","amphibien","fish","poisson","espèce","taxon"]
+};
+
+function normalizeForMatch(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[-\s]+/g," ").trim(); }
+
+async function fetchTimeout(url, opts={}, ms=11000){
+  const controller=new AbortController(); const t=setTimeout(()=>controller.abort(),ms);
+  try{ const res=await fetch(url,{...opts,mode:"cors",credentials:"omit",cache:"no-store",signal:controller.signal}); clearTimeout(t); return res; }
+  catch(e){ clearTimeout(t); throw e; }
+}
+async function wdSearch(term){
+  const api="https://www.wikidata.org/w/api.php";
+  const url=`${api}?action=wbsearchentities&search=${encodeURIComponent(term)}&language=fr&type=item&format=json&limit=25&origin=*`;
+  const r=await fetchTimeout(url,{headers:{Accept:"application/json"}},11000); const j=await r.json(); return j.search||[];
+}
+async function wdAsk(qid,category){
+  const accepted=(WD_ACCEPT[category]||[]).map(q=>`wd:${q}`).join(" ");
+  if(!accepted) return false;
+  const sparql=`ASK WHERE { wd:${qid} (wdt:P31/wdt:P279*) ?c . VALUES ?c { ${accepted} } }`;
+  const url="https://query.wikidata.org/sparql?format=json&query="+encodeURIComponent(sparql);
+  const r=await fetchTimeout(url,{headers:{"Accept":"application/sparql-results+json"}},12000); const j=await r.json(); return j.boolean===true;
+}
+async function wdAskOccupation(qid, occQ){
+  const sparql=`ASK WHERE { wd:${qid} wdt:P106/wdt:P279* wd:${occQ} . }`;
+  const url="https://query.wikidata.org/sparql?format=json&query="+encodeURIComponent(sparql);
+  const r=await fetchTimeout(url,{headers:{"Accept":"application/sparql-results+json"}},12000); const j=await r.json(); return j.boolean===true;
+}
+
+async function wpSearch(term){
+  const api="https://fr.wikipedia.org/w/api.php";
+  const url=`${api}?action=query&list=search&srsearch=${encodeURIComponent(term)}&srlimit=10&format=json&origin=*`;
+  const r=await fetchTimeout(url,{headers:{Accept:"application/json"}},11000); const j=await r.json(); return (j?.query?.search||[]).map(x=>x.title);
+}
+async function wpTitlesToQids(titles){
+  if(!titles.length) return [];
+  const api="https://fr.wikipedia.org/w/api.php";
+  const url=`${api}?action=query&prop=pageprops&ppprop=wikibase_item&titles=${encodeURIComponent(titles.join("|"))}&format=json&origin=*`;
+  const r=await fetchTimeout(url,{headers:{Accept:"application/json"}},11000); const j=await r.json();
+  const pages = Object.values(j?.query?.pages||{}); const qids=[];
+  for(const p of pages){ const q=p?.pageprops?.wikibase_item; if(q) qids.push(q); }
+  return qids;
+}
+
+async function wtExists(term){
+  const api="https://fr.wiktionary.org/w/api.php";
+  const url=`${api}?action=query&titles=${encodeURIComponent(term)}&format=json&origin=*`;
+  const r=await fetchTimeout(url,{headers:{Accept:"application/json"}},9000); const j=await r.json(); return !Object.values(j.query.pages)[0].missing;
+}
+async function wtHasCategory(term, patterns){
+  const api="https://fr.wiktionary.org/w/api.php";
+  const url=`${api}?action=query&titles=${encodeURIComponent(term)}&prop=categories&clshow=!hidden&cllimit=max&format=json&origin=*`;
+  const r=await fetchTimeout(url,{headers:{Accept:"application/json"}},11000); const j=await r.json();
+  const pages = j?.query?.pages || {}; const page = Object.values(pages)[0];
+  const cats = (page?.categories||[]).map(c => (c.title||"").toLowerCase());
+  return patterns.some(p => cats.some(c => c.includes(p)));
+}
+
+function variantsFR(term){
+  const t = term.trim();
+  const v = new Set([t, t.toLowerCase(), t.toUpperCase(), t[0].toUpperCase()+t.slice(1)]);
+  const n = t.toLowerCase();
+  if(n.endsWith("s")) v.add(t.slice(0,-1));
+  if(n.endsWith("es")) v.add(t.slice(0,-2));
+  if(n.endsWith("x")) v.add(t.slice(0,-1));
+  if(n.endsWith("aux")) v.add(t.slice(0,-3)+"al");
+  if(n.endsWith("eaux")) v.add(t.slice(0,-1));
+  return Array.from(v);
+}
+function strip(s){ return (s||"").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+
+const srcChip = () => document.getElementById("srcChip");
+function showSource(label){ const chip = srcChip(); chip.style.display='inline-block'; chip.textContent = label; }
+function hideSource(){ srcChip().style.display='none'; }
+
+async function validateOnline(category, letter, term){
+  try{
+    const L=(letter||'').toLowerCase(); const normTerm = strip(term);
+    if(normTerm[0]!==L) return false;
+
+    // Exceptions
+    if(EXCEPTIONS_BLOCK[category] && EXCEPTIONS_BLOCK[category][normTerm]) return false;
+    if(EXCEPTIONS[category] && EXCEPTIONS[category][normTerm]) return true;
+
+    // Build query set with category hints
+    const hints = CAT_HINTS[category] || [];
+    const querySet = new Set(variantsFR(term));
+    for(const h of hints){ querySet.add(`${term} ${h}`); querySet.add(`${h} ${term}`); }
+    querySet.add(term.normalize("NFD").replace(/[\u0300-\u036f]/g,""));
+
+    // 1) Wikidata search (with hints)
+    let candidates=[];
+    for(const q of querySet){
+      try{
+        const hits=await wdSearch(q);
+        const letterHits=hits.filter(h => (strip(h.label||"")[0]||"")===L || strip(h.label||"")===normTerm || strip(h.label||"").includes(normTerm));
+        const group=(letterHits.length?letterHits:hits).slice(0,25);
+        for(const h of group){ if(!candidates.some(x=>x.id===h.id)) candidates.push(h); }
+      }catch(e){}
+    }
+
+    // 2) Wikipédia → QIDs (backup)
+    if(candidates.length<5){
+      try{
+        const titles = await wpSearch(term);
+        const qids = await wpTitlesToQids(titles.slice(0,8));
+        for(const qid of qids){ if(!candidates.some(c=>c.id===qid)) candidates.push({id:qid,label:term}); }
+      }catch(e){}
+    }
+
+    // 3) Type checking — accept if ANY candidate matches (no strict label equality required)
+    for(const h of candidates.slice(0,40)){
+      let ok=false;
+      if(category==="acteur" || category==="chanteur"){ ok = await wdAskOccupation(h.id, OCCUPATION_Q[category]); }
+      if(!ok){ ok = await wdAsk(h.id, category); }
+      // Specific boosts
+      if(!ok && category==="pays"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/constituent country|nation constitutive|pays constitutif|territory|territoire|overseas territory|autonomous region|région autonome/.test(d + " " + lbl)) ok=true;
+      }
+      if(!ok && category==="outil"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/tool|hand tool|woodworking|bricklaying|masonry|construction|maçonnerie|outil|trowel/.test(d) || /outil|truelle|lime \(outil\)|file \(tool\)|trowel/.test(lbl)) ok=true;
+      }
+      if(!ok && category==="fleur"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/fleur|flower|angiosperm|angiosperme|plante/.test(d + " " + lbl)) ok=true;
+      }
+      if(!ok && category==="nourriture"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/food|aliment|dish|plat|meat|viande|pork|charcuterie|cold cut|deli/.test(d + " " + lbl)) ok=true;
+      }
+      if(!ok && category==="fruit"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/fruit|drupe|berry|baie|stone fruit/.test(d + " " + lbl)) ok=true;
+      }
+      if(!ok && category==="sport"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/sport|discipline|swimming|natation|water sport/.test(d + " " + lbl)) ok=true;
+      }
+      if(!ok && category==="animal"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/animal|mammif|mammal|bird|oiseau|reptile|amphib|fish|poisson|esp[eè]ce|taxon/.test(d + " " + lbl)) ok=true;
+      }
+      if(!ok && category==="véhicule"){
+        const d=(h.description||"").toLowerCase();
+        if(d && /(automobile|constructeur|marque|véhicule|voiture|camion|moto|bus|train|avion|bateau)/.test(d)) ok=true;
+      }
+      if(!ok && category==="métier"){
+        const lbl=strip(h.label||"");
+        if(/(ologue|iste|ien|ienne|eur|euse|teur|trice|docteur|médecin|ingénieur|professeur|artiste|auteur)/.test(lbl)) ok=true;
+      }
+      if(!ok) continue;
+      return true; // ✅ accept as soon as one candidate is a valid type
+    }
+
+    // 4) Wiktionary strict categories (last resort)
+    try{
+      const exists = await wtExists(term);
+      if(exists){
+        const patternsMap = {
+          "fleur": ["fleur","plante","botanique","angiosperme","angiosperm"],
+          "boisson": ["boisson","cocktail","alcool","soda","thé","café","jus","lait","eau"],
+          "nourriture": ["aliment","plat","mets","légume","fruit","pâtisserie","céréale","épice","viande","charcuterie"],
+          "fruit": ["fruit","drupe","baie","berry"],
+          "langue": ["langue"],
+          "couleur": ["couleur","teinte","nuance","pigment"],
+          "outil": ["outil","outil manuel","outil de maçonnerie","maçonnerie","construction"],
+          "sport": ["sport","discipline","natation","swimming"],
+          "animal": ["animal","mammifère","mammal","oiseau","reptile","amphibien","poisson","espèce","taxon"]
+        };
+        const patterns = patternsMap[category] || [];
+        if(patterns.length>0){
+          const okCat = await wtHasCategory(term, patterns);
+          if(okCat) return true;
+          else return false;
+        }
+      }
+    }catch(e){}
+
+    return false;
+  }catch(e){ return false; }
+}
+
+// ===== Jeu (ONLINE-FIRST) =====
+const elCategory = document.getElementById("category");
+const elLetter   = document.getElementById("letter");
+const elScore    = document.getElementById("score");
+const elTimerBar = document.getElementById("timerBar");
+const elAnswer   = document.getElementById("answer");
+const elFeedback = document.getElementById("feedback");
+const elSrcChip  = document.getElementById("srcChip");
+const btnValidate= document.getElementById("validateBtn");
+const btnSkip    = document.getElementById("skipBtn");
+const btnStart   = document.getElementById("startBtn");
+const elPasses   = document.getElementById("passesInfo");
+const actionBar  = document.getElementById("actionBar");
+
+let current = null;
+let score = 0;
+let timer = null;
+let roundEndsAt = 0;
+let passesLeft = MAX_PASSES;
+
+function setFeedback(text, cls="info"){ elFeedback.className = "feedback " + cls; elFeedback.textContent = text; }
+function showSource(label){ elSrcChip.style.display='inline-block'; elSrcChip.textContent = label; }
+function hideSource(){ elSrcChip.style.display='none'; }
+
+function stopTimer(){ if(timer){ cancelAnimationFrame(timer); timer=null; } }
+function startTimer(){
+  stopTimer();
+  roundEndsAt = performance.now() + ROUND_MS;
+  const tick = () => {
+    const remaining = Math.max(0, roundEndsAt - performance.now());
+    elTimerBar.style.width = Math.max(0, Math.min(100, (remaining/ROUND_MS)*100)).toFixed(1) + "%";
+    if(remaining <= 0){ setFeedback("⏳ Temps écoulé. Partie terminée !", "bad"); stopTimer(); current = null; return; }
+    timer = requestAnimationFrame(tick);
+  }; tick();
+}
+function updatePassesUI(){ elPasses.textContent = "Passes restantes : " + passesLeft; btnSkip.textContent = "Passer ("+passesLeft+")"; btnSkip.disabled = passesLeft<=0; }
+function pickRound(){ const cat=CATEGORIES[Math.floor(Math.random()*CATEGORIES.length)]; const letter=LETTERS[Math.floor(Math.random()*LETTERS.length)]; return {cat,letter}; }
+function renderRound(){
+  elCategory.textContent = current.cat;
+  elLetter.textContent = current.letter;
+  elAnswer.value = "";
+  hideSource();
+  setFeedback("12 secondes pour répondre !", "info");
+  elAnswer.focus({preventScroll:true});
+  setTimeout(()=>{ elAnswer.scrollIntoView({block:"center", behavior:"smooth"}); }, 50);
+  startTimer();
+}
+
+const LEARN_KEY = "jeu-categorie-lettre_user_v25_fix5";
+function loadUserLocal(){ try{ return JSON.parse(localStorage.getItem(LEARN_KEY)||"{}") || {}; }catch(e){ return {}; } }
+function saveUserLocal(d){ try{ localStorage.setItem(LEARN_KEY, JSON.stringify(d)); }catch(e){} }
+let USER_LOCAL = loadUserLocal();
+
+function mergedList(category, L){
+  const base = (LOCAL_DICT[category]?.[L] || []);
+  const user = (USER_LOCAL[category]?.[L] || []);
+  const all = [...base, ...user];
+  const seen=new Set(); const out=[];
+  for(const w of all){ const k=stripDiacritics(w); if(!seen.has(k)){ seen.add(k); out.push(w); } }
+  return out;
+}
+function inLocalFallback(cat, letter, term){
+  if(firstLetter(term)!==letter.toLowerCase()) return false;
+  const L = letter.toUpperCase();
+  const t = stripDiacritics(term);
+  const found = mergedList(cat, L).map(stripDiacritics).includes(t);
+  if(found) showSource("Local (secours)");
+  return found;
+}
+async function validate(term){
+  const {cat, letter} = current;
+  // LOCAL FIRST
+  const okLocal = inLocalFallback(cat, letter, term);
+  if(okLocal){ showSource('Local'); return true; }
+  // ONLINE NEXT
+  setFeedback('🔎 Recherche en ligne…', 'info'); showSource('En ligne');
+  const okOnline = await validateOnline(cat, letter, term);
+  if(okOnline) return true;
+  return false;
+}
+function addUserWord(category, letter, word){
+  const L = (letter||"").toUpperCase();
+  USER_LOCAL[category] = USER_LOCAL[category] || {};
+  USER_LOCAL[category][L] = USER_LOCAL[category][L] || [];
+  const arr = USER_LOCAL[category][L];
+  const norm = stripDiacritics(word);
+  if(!(arr.map(x=>stripDiacritics(x)).includes(norm))){
+    arr.push(word);
+    saveUserLocal(USER_LOCAL);
+  }
+}
+async function onValidate(){
+  try{
+    if(!current){ setFeedback("Appuie d’abord sur « Démarrer ».", "info"); return; }
+    setFeedback("Vérification…", "info");
+    stopTimer();
+    const term = (elAnswer.value||"").trim();
+    if(!term){ setFeedback("Entre un mot puis valide.", "info"); startTimer(); return; }
+    const ok = await validate(term);
+    if(ok){
+      addUserWord(current.cat, current.letter, term);
+      score++; elScore.textContent = String(score);
+      setFeedback("✅ Bien joué !", "ok");
+      setTimeout(()=>{ current = pickRound(); renderRound(); }, 650);
+    }else{
+      setFeedback("❌ Mauvaise réponse. Partie terminée.", "bad");
+    }
+  }catch(e){
+    setFeedback("⚠️ Erreur de vérification. Réessaie.", "bad");
+  }
+}
+
+// ===== Écouteurs =====
+document.getElementById("validateBtn").addEventListener("click", onValidate);
+document.getElementById("startBtn").addEventListener("click", () => {
+  score = 0; elScore.textContent = "0";
+  passesLeft = MAX_PASSES; updatePassesUI();
+  current = pickRound(); renderRound();
+});
+document.getElementById("skipBtn").addEventListener("click", () => {
+  if(!current || passesLeft <= 0) return;
+  passesLeft--; updatePassesUI();
+  current = pickRound(); renderRound();
+});
+document.getElementById("answer").addEventListener("keydown", (e)=>{ if(e.key==="Enter") onValidate(); });
+
+// ===== Barre d'actions visible avec clavier =====
+(function(){
+  if(!window.visualViewport) return;
+  const vv = window.visualViewport;
+  const onVV = () => {
+    const keyboardOverlap = Math.max(0, (window.innerHeight - (vv.height + vv.offsetTop)));
+    actionBar.style.bottom = `calc(${keyboardOverlap}px + env(safe-area-inset-bottom))`;
+  };
+  vv.addEventListener('resize', onVV);
+  vv.addEventListener('scroll', onVV);
+  window.addEventListener('orientationchange', onVV);
+  onVV();
+})();
+</script>
+</body>
+</html>
