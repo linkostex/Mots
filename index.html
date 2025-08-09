@@ -1,15 +1,14 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Catégorie & Lettre — v25_revert_standalone_pwa</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <meta name="theme-color" content="#161a36">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Catégorie & Lettre — v25_revert_standalone</title>
 <style>
   :root{ --bg:#0f1226; --card:#161a36; --text:#f4f7ff; --muted:#aab2d5; --ok:#31d0aa; --bad:#ff6b6b; --accent:#7b86ff; }
   *{box-sizing:border-box} html,body{height:100%}
@@ -35,14 +34,20 @@
     color:var(--text); height:32px; padding:2px 6px; border-radius:6px; outline:none; font-size:14px; line-height:1.2; }
   input::placeholder{color:#9aa3d3} button{background:var(--accent);color:#fff;border:none;padding:10px 12px;border-radius:10px;font-weight:700;cursor:pointer}
   button.secondary{background:transparent;border:1px solid rgba(255,255,255,0.25);color:#d6dbff} button[disabled]{opacity:.5;cursor:not-allowed}
-  .feedback{min-height:22px;margin-top:8px;font-weight:700} .ok{color:var(--ok)} .bad{color:#ff6b6b} .info{color:var(--muted)}
+  .feedback{min-height:22px;margin-top:8px;font-weight:700} .ok{color:var(--ok)} .bad{color:#ff6b6b} .info{color:#aab2d5}
   .source-chip{font-size:11px;border:1px dashed rgba(255,255,255,.25);padding:2px 6px;border-radius:999px;margin-left:6px;color:#cdd3ff}
   .actions-bar{ position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex; gap:8px; justify-content:space-between; align-items:center;
     background:rgba(22,26,54,.96); padding:8px 12px calc(8px + env(safe-area-inset-bottom)); border-top:1px solid rgba(255,255,255,0.08); }
-  .actions-bar .right{display:flex;gap:8px;flex-wrap:nowrap} .passes{font-size:12px;color:var(--muted)}
+  .actions-bar .right{display:flex;gap:8px;flex-wrap:nowrap} .passes{font-size:12px;color:#aab2d5}
   @media (max-width: 560px){ .letter{font-size:44px} .cat-name{font-size:24px} .prompt{flex-direction:column;align-items:stretch} .card{padding-bottom:150px} .actions-bar{gap:10px} .actions-bar .right{width:100%} .actions-bar button{width:100%} }
 </style>
-<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js',{scope:'./'}).catch(console.error);});}</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(console.error);
+  });
+}
+</script>
 </head>
 <body>
   <div class="card">
@@ -77,7 +82,6 @@
   </div>
 
 <script>
-// ===== Constantes & helpers =====
 const CATEGORIES = [
   "animal","pays","ville","capitale","monument","objet","fruit","couleur","prénom","sport","métier","véhicule",
   "instrument de musique","marque","plante","nourriture","langue","rivière","montagne","film","boisson",
@@ -100,7 +104,6 @@ function strip(s){ return (s||"").toLowerCase().normalize('NFD').replace(/[\u030
 
 // ===== Dictionnaires locaux (condensés) =====
 const LOCAL_DICT = {};
-// Marques & types clés
 LOCAL_DICT["véhicule"] = ensureQuota({
   "A":["Audi","Alfa Romeo","Aston Martin"], "B":["BMW","Bentley","Bugatti"],
   "C":["Citroën","Chevrolet","Chrysler"], "D":["Dacia","Dodge","Daihatsu"],
@@ -132,6 +135,7 @@ LOCAL_DICT["sport"]      = ensureQuota({ "A":["athlétisme"], "T":["tennis"], "N
 LOCAL_DICT["animal"]     = ensureQuota({ "H":["héron"], "C":["chat","chien"], "L":["lion"], "T":["taupe"] });
 LOCAL_DICT["ville"]      = ensureQuota({ "N":["New York","Nice"] });
 LOCAL_DICT["fleur"]      = ensureQuota({ "P":["pétunia","pavot","pivoine"], "J":["jonquille"] });
+LOCAL_DICT["montagne"]   = ensureQuota({ "J": ["Jura"] });
 LOCAL_DICT["acteur"]     = ensureQuota({ "O":["Omar Sy"], "D":["Dany Boon"], "J":["Jean Dujardin"], "M":["Marion Cotillard"],
                                          "L":["Louis de Funès"], "V":["Vincent Cassel"], "I":["Isabelle Huppert"] });
 
@@ -197,7 +201,8 @@ const CAT_HINTS = {
   "acteur": ["acteur","comédien","actor","cinéma","film"],
   "chanteur": ["chanteur","chanteuse","singer","musique","chant"],
   "animal": ["animal","mammifère","mammal","oiseau","bird","reptile","amphibien","fish","poisson","espèce","taxon"],
-  "véhicule": ["véhicule","voiture","marque automobile","constructeur auto","automobile","brand"]
+  "véhicule": ["véhicule","voiture","marque automobile","constructeur auto","automobile","brand"],
+  "montagne": ["massif","chaîne de montagnes","mountain range","chaîne","massif montagneux"]
 };
 
 async function fetchTimeout(url, opts={}, ms=11000){
@@ -222,7 +227,6 @@ async function wdAskOccupation(qid, occQ){
   const url="https://query.wikidata.org/sparql?format=json&query="+encodeURIComponent(sparql);
   const r=await fetchTimeout(url,{headers:{"Accept":"application/sparql-results+json"}},12000); const j=await r.json(); return j.boolean===true;
 }
-
 async function wpSearch(term){
   const api="https://fr.wikipedia.org/w/api.php";
   const url=`${api}?action=query&list=search&srsearch=${encodeURIComponent(term)}&srlimit=10&format=json&origin=*`;
@@ -237,7 +241,6 @@ async function wpTitlesToQids(titles){
   for(const p of pages){ const q=p?.pageprops?.wikibase_item; if(q) qids.push(q); }
   return qids;
 }
-
 function variantsFR(term){
   const t = term.trim();
   const v = new Set([t, t.toLowerCase(), t.toUpperCase(), t[0].toUpperCase()+t.slice(1)]);
@@ -329,6 +332,11 @@ async function validateOnline(category, letter, term){
         const lbl=strip(h.label||"");
         if(/(ologue|iste|ien|ienne|eur|euse|teur|trice|docteur|médecin|ingénieur|professeur|artiste|auteur)/.test(lbl)) ok=true;
       }
+      if(!ok && category==="montagne"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/massif|cha[iî]ne de montagnes|cha[iî]ne|mountain range|montagne|massif montagneux/.test(d + " " + lbl)) ok=true;
+      }
       if(!ok) continue;
       return true;
     }
@@ -385,7 +393,7 @@ function renderRound(){
 }
 
 // Local fallback merged with user additions
-const LEARN_KEY = "jeu-categorie-lettre_user_v25_revert";
+const LEARN_KEY = "jeu-categorie-lettre_user_v25_revert_pwa";
 function loadUserLocal(){ try{ return JSON.parse(localStorage.getItem(LEARN_KEY)||"{}") || {}; }catch(e){ return {}; } }
 function saveUserLocal(d){ try{ localStorage.setItem(LEARN_KEY, JSON.stringify(d)); }catch(e){} }
 let USER_LOCAL = loadUserLocal();
@@ -420,9 +428,7 @@ function addUserWord(category, letter, word){
 
 async function validate(term){
   const {cat, letter} = current;
-  // LOCAL FIRST
   if(inLocalFallback(cat, letter, term)) return true;
-  // ONLINE
   setFeedback('🔎 Recherche en ligne…', 'info'); showSource("En ligne");
   const okOnline = await validateOnline(cat, letter, term);
   return okOnline;
@@ -449,7 +455,6 @@ async function onValidate(){
   }
 }
 
-// ===== Écouteurs =====
 document.getElementById("validateBtn").addEventListener("click", onValidate);
 document.getElementById("startBtn").addEventListener("click", () => {
   score = 0; elScore.textContent = "0";
@@ -463,9 +468,7 @@ document.getElementById("skipBtn").addEventListener("click", () => {
 });
 document.getElementById("answer").addEventListener("keydown", (e)=>{ if(e.key==="Enter") onValidate(); });
 
-// ===== Barre d'actions visible avec clavier (mobile) =====
-(function(){
-  if(!window.visualViewport) return;
+(function(){ if(!window.visualViewport) return;
   const vv = window.visualViewport;
   const onVV = () => {
     const keyboardOverlap = Math.max(0, (window.innerHeight - (vv.height + vv.offsetTop)));
