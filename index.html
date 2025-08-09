@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Catégorie & Lettre — v25_fix2</title>
+<title>Catégorie & Lettre — v25_fix5</title>
 <style>
   :root{ --bg:#0f1226; --card:#161a36; --text:#f4f7ff; --muted:#aab2d5; --ok:#31d0aa; --bad:#ff6b6b; --accent:#7b86ff; }
   *{box-sizing:border-box} html,body{height:100%}
@@ -37,18 +37,6 @@
   .actions-bar .right{display:flex;gap:8px;flex-wrap:nowrap} .passes{font-size:12px;color:var(--muted)}
   @media (max-width: 560px){ .letter{font-size:44px} .cat-name{font-size:24px} .prompt{flex-direction:column;align-items:stretch} .card{padding-bottom:150px} .actions-bar{gap:10px} .actions-bar .right{width:100%} .actions-bar button{width:100%} }
 </style>
-
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#161a36">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
-<script>
-// SW registration (deferred)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(console.error);
-  });
-}
-</script>
 </head>
 <body>
   <div class="card">
@@ -96,7 +84,7 @@ const MAX_PASSES = 3;
 function stripDiacritics(s){return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
 function firstLetter(s){
   return stripDiacritics(s)
-    .replace(/^[\\s'\\\"«»()\\-\\.,]+/, "")
+    .replace(/^[\s'\"«»()\-\.,]+/, "")
     .replace(/^l'|^le |^la |^les |^des |^de |^du |^d'|^the /,"")[0]||"";
 }
 function uniq(arr){const seen=new Set(); const out=[]; for(const x of arr){const k=stripDiacritics(x); if(!seen.has(k)){ seen.add(k); out.push(x);} } return out;}
@@ -105,41 +93,73 @@ function ensureQuota(map){ for(const L of LETTERS){ map[L]=uniq(map[L]||[]); } r
 // ===== Dictionnaires locaux (minimaux; online-first) =====
 const LOCAL_DICT = {};
 LOCAL_DICT["nourriture"] = ensureQuota({ "M":[ "melon","macaron","maïs","miel","miso","moutarde" ], "J":["jambon"] });
+LOCAL_DICT["fruit"]      = ensureQuota({ "M":[ "mangue","melon","mirabelle","mandarine","myrtille" ] });
 LOCAL_DICT["pays"] = ensureQuota({
   "A":["Angleterre"], "E":["Écosse","Ecosse"], "P":["Pays de Galles"], "I":["Irlande du Nord"],
-  "H":["Hongrie"], "S":["Suède","Suisse"], "Q":["Qatar"], "K":["Koweït"],
-  "J":["Japon","Jordanie","Jamaïque"]
+  "H":["Hongrie"], "S":["Suède","Suisse"], "Q":["Qatar"], "K":["Koweït"], "J":["Japon","Jordanie","Jamaïque"]
 });
 LOCAL_DICT["métier"] = ensureQuota({ "R":["radiologue"], "U":["urologue"], "N":["neurologue"] });
 LOCAL_DICT["sport"]  = ensureQuota({ "A":["athlétisme"], "T":["tennis"], "N":["natation"] });
-LOCAL_DICT["animal"] = ensureQuota({ "H":["héron"], "C":["chat","chien"], "L":["lion"] });
+LOCAL_DICT["animal"] = ensureQuota({ "H":["héron"], "C":["chat","chien"], "L":["lion"], "T":["taupe"] });
 LOCAL_DICT["ville"]  = ensureQuota({ "N":["New York","Nice"] });
 LOCAL_DICT["fleur"]  = ensureQuota({ "P":["pétunia","pavot","pivoine"], "J":["jonquille"] });
 
+// ===== Ajouts marques véhicules & boissons (local) =====
+LOCAL_DICT["véhicule"] = ensureQuota(Object.assign({}, LOCAL_DICT["véhicule"]||{}, {
+  "A": (LOCAL_DICT["véhicule"]?.["A"]||[]).concat(["Audi","Alfa Romeo","Aston Martin"]),
+  "B": (LOCAL_DICT["véhicule"]?.["B"]||[]).concat(["BMW","Bentley","Bugatti"]),
+  "C": (LOCAL_DICT["véhicule"]?.["C"]||[]).concat(["Citroën","Chevrolet","Chrysler"]),
+  "D": (LOCAL_DICT["véhicule"]?.["D"]||[]).concat(["Dacia","Dodge","Daihatsu"]),
+  "F": (LOCAL_DICT["véhicule"]?.["F"]||[]).concat(["Ford","Fiat","Ferrari"]),
+  "H": (LOCAL_DICT["véhicule"]?.["H"]||[]).concat(["Honda","Hyundai"]),
+  "J": (LOCAL_DICT["véhicule"]?.["J"]||[]).concat(["Jaguar","Jeep"]),
+  "K": (LOCAL_DICT["véhicule"]?.["K"]||[]).concat(["Kia","Koenigsegg"]),
+  "L": (LOCAL_DICT["véhicule"]?.["L"]||[]).concat(["Lamborghini","Lexus","Land Rover"]),
+  "M": (LOCAL_DICT["véhicule"]?.["M"]||[]).concat(["Mercedes-Benz","Maserati","Mazda","McLaren","Mini"]),
+  "N": (LOCAL_DICT["véhicule"]?.["N"]||[]).concat(["Nissan"]),
+  "O": (LOCAL_DICT["véhicule"]?.["O"]||[]).concat(["Opel"]),
+  "P": (LOCAL_DICT["véhicule"]?.["P"]||[]).concat(["Peugeot","Porsche","Pontiac"]),
+  "R": (LOCAL_DICT["véhicule"]?.["R"]||[]).concat(["Renault","Rolls-Royce","Rivian"]),
+  "S": (LOCAL_DICT["véhicule"]?.["S"]||[]).concat(["Subaru","Suzuki","Seat","Skoda"]),
+  "T": (LOCAL_DICT["véhicule"]?.["T"]||[]).concat(["Toyota","Tesla","Triumph"]),
+  "V": (LOCAL_DICT["véhicule"]?.["V"]||[]).concat(["Volkswagen","Volvo"]),
+  "Y": (LOCAL_DICT["véhicule"]?.["Y"]||[]).concat(["Yamaha"])
+}));
+
+LOCAL_DICT["boisson"] = ensureQuota(Object.assign({}, LOCAL_DICT["boisson"]||{}, {
+  "C": (LOCAL_DICT["boisson"]?.["C"]||[]).concat(["Coca-Cola","Capri-Sun","Canada Dry"]),
+  "E": (LOCAL_DICT["boisson"]?.["E"]||[]).concat(["Evian","Energy drink"]),
+  "F": (LOCAL_DICT["boisson"]?.["F"]||[]).concat(["Fanta","Fuze Tea"]),
+  "L": (LOCAL_DICT["boisson"]?.["L"]||[]).concat(["Lipton Ice Tea"]),
+  "N": (LOCAL_DICT["boisson"]?.["N"]||[]).concat(["Nestea"]),
+  "O": (LOCAL_DICT["boisson"]?.["O"]||[]).concat(["Orangina"]),
+  "P": (LOCAL_DICT["boisson"]?.["P"]||[]).concat(["Pepsi","Perrier"]),
+  "R": (LOCAL_DICT["boisson"]?.["R"]||[]).concat(["Red Bull","Ricard"]),
+  "S": (LOCAL_DICT["boisson"]?.["S"]||[]).concat(["Sprite","Schweppes"]),
+  "V": (LOCAL_DICT["boisson"]?.["V"]||[]).concat(["Volvic","Vittel"])
+}));
 LOCAL_DICT["acteur"] = ensureQuota({
-  "O": ["Omar Sy"],
-  "D": ["Dany Boon"],
-  "J": ["Jean Dujardin"],
-  "M": ["Marion Cotillard"],
-  "L": ["Louis de Funès"],
-  "V": ["Vincent Cassel"],
-  "I": ["Isabelle Huppert"]
+  "O": ["Omar Sy"], "D": ["Dany Boon"], "J": ["Jean Dujardin"], "M": ["Marion Cotillard"],
+  "L": ["Louis de Funès"], "V": ["Vincent Cassel"], "I": ["Isabelle Huppert"]
 });
 
-
 // ===== Exceptions & blocages =====
+
 const EXCEPTIONS = {
   "outil": {"lime": true, "truelle": true},
   "nourriture": {"melon": true, "jambon": true},
+  "fruit": {"mangue": true},
   "métier": {"radiologue": true,"urologue": true,"neurologue": true},
   "sport": {"athlétisme": true, "natation": true},
   "ville": {"new york": true},
-  "boisson": {"eau": true},
+  "boisson": {"eau": true, "fanta": true},
   "langue": {"roumain": true},
   "fleur": {"pétunia": true,"pavot": true,"pivoine": true,"jonquille": true},
   "pays": {"angleterre": true, "écosse": true, "ecosse": true, "pays de galles": true, "irlande du nord": true, "japon": true},
-  "acteur": {"omar sy": true, "jean dujardin": true, "marion cotillard": true, "louis de funes": true, "louis de funès": true}
+  "animal": {"taupe": true},
+  "véhicule": {"ford": true}
 };
+
 const EXCEPTIONS_BLOCK = { "pays": {"québec": true} };
 
 // ===== Validation en ligne (ONLINE-FIRST) =====
@@ -150,12 +170,12 @@ const WD_ACCEPT = {
   "capitale": ["Q5119","Q1549591"],
   "monument": ["Q4989906","Q839954"],
   "objet": ["Q488383","Q8205328","Q39546"],
-  "fruit": ["Q3314483","Q2095","Q16521"],
+  "fruit": ["Q3314483","Q16521"],
   "couleur": ["Q1075"],
   "prénom": ["Q202444"],
   "sport": ["Q349","Q31629","Q217613","Q31920","Q542"],
   "métier": ["Q28640","Q12737077","Q500808","Q930752","Q39631","Q901","Q901711"],
-  "véhicule": ["Q42889"],
+  "véhicule": ["Q42889","Q215380","Q1047129"],
   "instrument de musique":["Q34379"],
   "marque": ["Q431289","Q167270","Q161338","Q4830453"],
   "plante": ["Q756","Q16521"],
@@ -178,17 +198,20 @@ const OCCUPATION_Q = { "acteur": "Q33999", "chanteur": "Q177220" };
 const CAT_HINTS = {
   "pays": ["pays","country","état souverain","sovereign state","nation"],
   "outil": ["outil","outil manuel","outil de menuiserie","outil de bricolage","outil de maçonnerie","maçonnerie","bricklaying","masonry","tool","hand tool","woodworking tool","trowel"],
-  "boisson": ["boisson","drink","beverage","soda","cocktail"],
+  "boisson": ["boisson","drink","beverage","soda","soft drink","marque de boisson","brand"],
   "nourriture": ["aliment","food","viande","charcuterie","meat","pork","cold cut","deli meat"],
   "instrument de musique": ["instrument de musique","instrument","musical instrument"],
+  "véhicule": ["véhicule","voiture","marque automobile","constructeur auto","automobile","brand"] ,
   "jeu vidéo": ["jeu vidéo","video game"],
   "fleur": ["fleur","flower","plante à fleurs","angiosperme","angiosperm"],
+  "fruit": ["fruit","drupe","baie","berry","stone fruit","tropical fruit"],
   "sport": ["sport","discipline","natation","swimming","water sport"],
   "acteur": ["acteur","comédien","actor","cinéma","film"],
-  "chanteur": ["chanteur","chanteuse","singer","musique","chant"]
+  "chanteur": ["chanteur","chanteuse","singer","musique","chant"],
+  "animal": ["animal","mammifère","mammal","oiseau","bird","reptile","amphibien","fish","poisson","espèce","taxon"]
 };
 
-function normalizeForMatch(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[-\\s]+/g," ").trim(); }
+function normalizeForMatch(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[-\s]+/g," ").trim(); }
 
 async function fetchTimeout(url, opts={}, ms=11000){
   const controller=new AbortController(); const t=setTimeout(()=>controller.abort(),ms);
@@ -253,7 +276,7 @@ function variantsFR(term){
   if(n.endsWith("eaux")) v.add(t.slice(0,-1));
   return Array.from(v);
 }
-function strip(s){ return (s||"").toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,''); }
+function strip(s){ return (s||"").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 
 const srcChip = () => document.getElementById("srcChip");
 function showSource(label){ const chip = srcChip(); chip.style.display='inline-block'; chip.textContent = label; }
@@ -272,7 +295,7 @@ async function validateOnline(category, letter, term){
     const hints = CAT_HINTS[category] || [];
     const querySet = new Set(variantsFR(term));
     for(const h of hints){ querySet.add(`${term} ${h}`); querySet.add(`${h} ${term}`); }
-    querySet.add(term.normalize("NFD").replace(/[\\u0300-\\u036f]/g,""));
+    querySet.add(term.normalize("NFD").replace(/[\u0300-\u036f]/g,""));
 
     // 1) Wikidata search (with hints)
     let candidates=[];
@@ -294,7 +317,7 @@ async function validateOnline(category, letter, term){
       }catch(e){}
     }
 
-    // 3) Type checking
+    // 3) Type checking — accept if ANY candidate matches (no strict label equality required)
     for(const h of candidates.slice(0,40)){
       let ok=false;
       if(category==="acteur" || category==="chanteur"){ ok = await wdAskOccupation(h.id, OCCUPATION_Q[category]); }
@@ -320,10 +343,20 @@ async function validateOnline(category, letter, term){
         const lbl=(h.label||"").toLowerCase();
         if(/food|aliment|dish|plat|meat|viande|pork|charcuterie|cold cut|deli/.test(d + " " + lbl)) ok=true;
       }
+      if(!ok && category==="fruit"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/fruit|drupe|berry|baie|stone fruit/.test(d + " " + lbl)) ok=true;
+      }
       if(!ok && category==="sport"){
         const d=(h.description||"").toLowerCase();
         const lbl=(h.label||"").toLowerCase();
         if(/sport|discipline|swimming|natation|water sport/.test(d + " " + lbl)) ok=true;
+      }
+      if(!ok && category==="animal"){
+        const d=(h.description||"").toLowerCase();
+        const lbl=(h.label||"").toLowerCase();
+        if(/animal|mammif|mammal|bird|oiseau|reptile|amphib|fish|poisson|esp[eè]ce|taxon/.test(d + " " + lbl)) ok=true;
       }
       if(!ok && category==="véhicule"){
         const d=(h.description||"").toLowerCase();
@@ -334,9 +367,7 @@ async function validateOnline(category, letter, term){
         if(/(ologue|iste|ien|ienne|eur|euse|teur|trice|docteur|médecin|ingénieur|professeur|artiste|auteur)/.test(lbl)) ok=true;
       }
       if(!ok) continue;
-      const lbl=normalizeForMatch(h.label||""); const t=normalizeForMatch(term);
-      if(lbl===t) return true;
-      if(lbl.includes(t) || t.includes(lbl)) return true;
+      return true; // ✅ accept as soon as one candidate is a valid type
     }
 
     // 4) Wiktionary strict categories (last resort)
@@ -347,10 +378,12 @@ async function validateOnline(category, letter, term){
           "fleur": ["fleur","plante","botanique","angiosperme","angiosperm"],
           "boisson": ["boisson","cocktail","alcool","soda","thé","café","jus","lait","eau"],
           "nourriture": ["aliment","plat","mets","légume","fruit","pâtisserie","céréale","épice","viande","charcuterie"],
+          "fruit": ["fruit","drupe","baie","berry"],
           "langue": ["langue"],
           "couleur": ["couleur","teinte","nuance","pigment"],
           "outil": ["outil","outil manuel","outil de maçonnerie","maçonnerie","construction"],
-          "sport": ["sport","discipline","natation","swimming"]
+          "sport": ["sport","discipline","natation","swimming"],
+          "animal": ["animal","mammifère","mammal","oiseau","reptile","amphibien","poisson","espèce","taxon"]
         };
         const patterns = patternsMap[category] || [];
         if(patterns.length>0){
@@ -413,7 +446,7 @@ function renderRound(){
   startTimer();
 }
 
-const LEARN_KEY = "jeu-categorie-lettre_user_v25_fix2";
+const LEARN_KEY = "jeu-categorie-lettre_user_v25_fix5";
 function loadUserLocal(){ try{ return JSON.parse(localStorage.getItem(LEARN_KEY)||"{}") || {}; }catch(e){ return {}; } }
 function saveUserLocal(d){ try{ localStorage.setItem(LEARN_KEY, JSON.stringify(d)); }catch(e){} }
 let USER_LOCAL = loadUserLocal();
@@ -436,10 +469,14 @@ function inLocalFallback(cat, letter, term){
 }
 async function validate(term){
   const {cat, letter} = current;
-  setFeedback('🔎 Recherche en ligne…', 'info'); showSource("En ligne");
+  // LOCAL FIRST
+  const okLocal = inLocalFallback(cat, letter, term);
+  if(okLocal){ showSource('Local'); return true; }
+  // ONLINE NEXT
+  setFeedback('🔎 Recherche en ligne…', 'info'); showSource('En ligne');
   const okOnline = await validateOnline(cat, letter, term);
   if(okOnline) return true;
-  return inLocalFallback(cat, letter, term);
+  return false;
 }
 function addUserWord(category, letter, word){
   const L = (letter||"").toUpperCase();
